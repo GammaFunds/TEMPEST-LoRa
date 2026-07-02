@@ -136,3 +136,24 @@ Before adding binary captures or generated videos to Git:
 5. record hashes and provenance.
 
 The existing upstream sample files remain untouched.
+
+## R1 Linux SX1262 receiver deployment paths
+
+The Linux receiver introduced in R1 adds these uConsole sparse-checkout paths:
+
+```text
+receiver/linux-sx1262/
+third_party/RadioLib.PROVENANCE.md
+third_party/RadioLib/
+```
+
+`third_party/RadioLib/` is an exact Git submodule and must be initialized
+explicitly at the commit recorded in the provenance file. It must not track an
+unpinned branch and must remain free of local modifications.
+
+The receiver source and RadioLib submodule do not change the policy excluding
+`AttackSamples/` from the default uConsole checkout.
+
+Deployment, submodule initialization, `liblgpio-dev` installation, hardware
+compilation, and the meshtasticd stop-test-restore procedure remain separate
+approval boundaries.
