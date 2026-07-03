@@ -1,4 +1,4 @@
-# R2C.6B Offline Laboratory Transfer Core
+# R2C.6C Offline Laboratory Transfer Core
 
 This directory implements the offline-only R2C.1 contracts for synthetic
 TEMPEST-LoRa laboratory fixtures.
@@ -62,7 +62,8 @@ object keys at every level.
 
 ## Runtime descriptor
 
-`PinnedOracleRuntime` holds only explicit caller-supplied fields:
+`PinnedOracleRuntime` has ten required, explicit caller-supplied fields. The
+dataclass defines no defaults:
 
 - `python_executable: Path`
 - `stage_site_packages: Path`
@@ -70,15 +71,17 @@ object keys at every level.
 - `lora_sdr_init: Path`
 - `lora_sdr_binding: Path`
 - `native_library: Path`
-- `python_version: str` = `"3.12.13"`
-- `gnuradio_version: str` = `"3.10.11.0"`
-- `oracle_commit: str` = pinned commit
-- `oracle_tree: str` = pinned tree
+- `python_version: str` -- required exact value `"3.12.13"`
+- `gnuradio_version: str` -- required exact value `"3.10.11.0"`
+- `oracle_commit: str` -- required exact pinned commit
+- `oracle_tree: str` -- required exact pinned tree
 
-All paths must be exact `Path` objects, absolute, canonical, and symlink-free.
-The runtime descriptor performs no filesystem discovery and mutates neither
-`sys.path` nor `os.environ`. The lazy loader imports exactly `gnuradio.gr`,
-`gnuradio.blocks`, `pmt`, and `gnuradio.lora_sdr` (not plain `lora_sdr`).
+All paths must be exact concrete `Path` objects, absolute, canonical, and
+symlink-free. Files and directories must have the required type and containment
+relationships. The runtime descriptor performs no filesystem discovery and
+mutates neither `sys.path` nor `os.environ`. The lazy loader imports exactly
+`gnuradio.gr`, `gnuradio.blocks`, `pmt`, and `gnuradio.lora_sdr` (not plain
+`lora_sdr`) and verifies their versions and origins.
 
 ## Exact tap point
 
@@ -93,26 +96,56 @@ symbols are added. The six stream edges are:
 5. `interleaver -> gray_demap`
 6. `gray_demap -> vector_sink_i`
 
-## R2C.6B status
+## R2C.6C validation status
 
-All code in this directory (including `oracle_adapter.py`) is **code/mock-only
-for R2C.6B**. The adapter constructs flowgraph blocks, connects edges, and
-processes tags only through fakes/mocks in tests. Separate approval is required
-before any real execution against the staged GNU Radio runtime.
+R2C.6B completed the adapter implementation and its fake/mock-based offline
+validation. R2C.6C then completed one explicitly authorised real offline smoke
+test against the pinned GNU Radio runtime:
 
-The module prohibits display, SDR, device, IQ and RF behavior. No real Oracle,
-flowgraph, symbol generation, display, SDR, device, network, service,
-installation, commit, push, or staging action occurs within the test or import
-path.
+- repository commit:
+  `8d3102f8fe7879d3f6f3b44dfd05d6cbf10a7000`;
+- Oracle commit:
+  `862746dd1cf635c9c8a4bfbaa2c3a0ec3a5306c9`;
+- Oracle tree:
+  `97e9f429c68b4672ca412a3ee411311564286eb1`;
+- Python `3.12.13` and GNU Radio `3.10.11.0`;
+- synthetic payload `ABC` (`414243`);
+- request ID:
+  `3665c1a10f88cb6718b3fdf8227891e72fe106a9d7cc9d50d589a0d24c066aeb`;
+- 18 zero-based SF7 symbols;
+- symbol SHA-256 over unsigned 16-bit big-endian values:
+  `6495c516e2f416393038ca3ea5a7e0331035ef4f31e93c072e5f493086931f1f`.
+
+The external evidence set is identified as `R2C6C-B-ABC-8d3102f8`. Its
+acceptance marker SHA-256 is
+`5d63b69fd671be8db7756eb4bffccba3466a13ced901dd7ffcb592418eb81a20`;
+its manifest SHA-256 is
+`276d56eed3a0f9e66e1033c18bcb933fa5d4903ab7a56b98891f77ff3b4d33e1`.
+The evidence remains outside this repository.
+
+GNU Radio created one isolated runtime preference inside the evidence-specific
+`XDG_CONFIG_HOME`: `gnuradio/prefs/vmcircbuf_default_factory`, containing
+`gr::vmcircbuf_sysv_shm_factory`. A separate read-only audit classified this as
+the expected GNU Radio circular-buffer factory preference. It did not modify
+the repository, Oracle checkout, staged runtime, or system configuration.
+
+The smoke test instantiated only the seven approved blocks through
+`vector_sink_i`. It did not invoke `modulate`, a renderer, display access, SDR,
+IQ recording, RF, or hardware. Those paths remain untested and prohibited
+without separate approval. Ordinary imports and the offline test suite do not
+execute the real Oracle or start a flowgraph.
 
 ## Offline tests
 
-Run from the repository root without installing anything:
+The accepted offline suite contains 156 tests. Run it from the repository root
+without installing anything or loading the real Oracle runtime:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 \
-PYTHONPATH=sender/lab-transfer/src \
-python3 -m unittest discover \
-  -s sender/lab-transfer/tests \
-  -v
+env -u LD_LIBRARY_PATH -u PYTHONHOME \
+  PYTHONDONTWRITEBYTECODE=1 \
+  PYTHONHASHSEED=0 \
+  PYTHONPATH=sender/lab-transfer/src \
+  python3 -B -m unittest discover \
+    -s sender/lab-transfer/tests \
+    -q
 ```
