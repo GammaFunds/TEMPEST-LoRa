@@ -4,9 +4,12 @@ import hashlib
 import unittest
 
 from tempest_lora_lab.profiles import (
+    CAPTURE_GOLDEN_SYMBOL_FIXTURE_SHA256,
     PINNED_ORACLE_COMMIT,
     PINNED_ORACLE_TREE,
+    CaptureReplayRendererProfile,
     DynamicPhyParameters,
+    DynamicPixelRendererProfile,
     capture_profile_descriptor,
     dynamic_profile_descriptor,
     normalize_capture_symbols,
@@ -114,6 +117,39 @@ class ProfileTests(unittest.TestCase):
             DynamicPhyParameters(frequency_hz=915_000_000.0).validate()
         with self.assertRaises(ProtocolError):
             DynamicPhyParameters(coding_rate_value=True).validate()
+
+    def test_renderer_profiles_are_separate_from_transfer_profile(self) -> None:
+        capture_renderer = CaptureReplayRendererProfile()
+        dynamic_renderer = DynamicPixelRendererProfile()
+        self.assertEqual(
+            capture_renderer.descriptor()["schema"],
+            "tempest-lora.capture-replay-renderer-profile.v1",
+        )
+        self.assertEqual(
+            dynamic_renderer.descriptor()["schema"],
+            "tempest-lora.dynamic-pixel-renderer-profile.v1",
+        )
+        self.assertNotIn("renderer", dynamic_profile_descriptor())
+        self.assertEqual(
+            dynamic_renderer.descriptor_sha256(),
+            "08a3b19e732a338283accc0159c8710a1c17e3cf4732f43e1442c6ced2905b0d",
+        )
+        self.assertEqual(
+            capture_renderer.symbol_fixture_sha256,
+            CAPTURE_GOLDEN_SYMBOL_FIXTURE_SHA256,
+        )
+
+    def test_renderer_profile_types_and_values_are_strict(self) -> None:
+        with self.assertRaises(ProtocolError):
+            DynamicPixelRendererProfile(profile_id=2).validate()
+        with self.assertRaises(ProtocolError):
+            DynamicPixelRendererProfile(sync_symbols_zero_based=[8, 16]).validate()
+        with self.assertRaises(ProtocolError):
+            DynamicPixelRendererProfile(maximum_frame_count=True).validate()
+        with self.assertRaises(ProtocolError):
+            CaptureReplayRendererProfile(profile_id=1).validate()
+        with self.assertRaises(ProtocolError):
+            CaptureReplayRendererProfile(visible_width=1920.0).validate()
 
 
 if __name__ == "__main__":

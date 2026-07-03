@@ -1,7 +1,8 @@
-# R2C.6C Offline Laboratory Transfer Core
+# R2D.2I Offline Laboratory Transfer and Renderer Core
 
-This directory implements the offline-only R2C.1 contracts for synthetic
-TEMPEST-LoRa laboratory fixtures.
+This directory implements the offline-only R2C.1 transfer contracts and the
+strictly separated R2D.2G renderer contracts for synthetic TEMPEST-LoRa
+laboratory fixtures.
 
 ## Scope
 
@@ -10,17 +11,23 @@ TEMPEST-LoRa laboratory fixtures.
 - per-frame header and payload CRC32;
 - final SHA-256 reassembly validation;
 - explicit synthetic-fixture input policy;
-- separate `capture-replay-v1` and `dynamic-software-phy-v1` profiles;
+- separate `capture-replay-v1` and `dynamic-software-phy-v1` transfer profiles;
 - strict JSON request/result validation for the pinned external
-  `gr-lora_sdr` process/file boundary.
+  `gr-lora_sdr` process/file boundary;
+- fixture-only Capture-Replay validation and canonical PGM reproduction;
+- a separate deterministic Dynamic Clear-Source pixel renderer.
 
-The module deliberately contains no Oracle launcher, modulator, renderer,
-display access, SDR access, receiver control, service management, or RF code.
+The module contains no automatic or implicit Oracle execution, display access,
+SDR access, receiver control, service management, IQ recording, RF, or hardware
+code. The explicit `execute_pinned_oracle` boundary remains caller-controlled;
+ordinary imports and tests do not execute it or start a GNU Radio flowgraph.
 
-The module contains no preamble, sync, SFD, padding, zero-fill, or tail output.
-Symbols are captured after `gray_demap` and before `modulate`.
+The Oracle adapter captures only payload symbols after `gray_demap` and before
+`modulate`. It does not add preamble, sync, SFD, padding, zero-fill, or tail
+symbols. The Dynamic renderer adds its independently documented renderer
+envelope only after a validated `SymbolEnvelope` has crossed that boundary.
 
-## Profile boundary
+## Transfer-profile boundary
 
 `capture-replay-v1` accepts only approved published MAT-derived symbol
 fixtures. It is not transport-capable. One-based MAT indices are converted to
@@ -29,8 +36,72 @@ preserved.
 
 `dynamic-software-phy-v1` is the only transfer-capable profile. It accepts only
 validated zero-based results associated with the pinned Oracle commit and tree
-and the exact R2C.1 PHY parameter descriptor. No symbols are added, removed,
-reordered, borrowed, or substituted.
+and the exact R2C.1 PHY parameter descriptor. No Oracle payload symbols are
+added, removed, reordered, borrowed, or substituted.
+
+Renderer descriptors are separate from `dynamic_profile_descriptor()`. They do
+not alter the byte-exact `TLR1` transport-profile hash.
+
+## Renderer boundary
+
+R2D.2G defines two deliberately separate APIs:
+
+- `replay_capture_fixture(...)`
+- `render_dynamic_envelope(...)`
+
+There is no automatic cross-profile renderer dispatch.
+
+### Capture-Replay renderer
+
+`CaptureReplayRendererProfile` accepts only the pinned published SF7 Golden
+fixture and its exact approved Capture envelope. It validates the PNG
+structure, chunk CRCs, dimensions, grayscale coding, binary pixels, fixture
+hashes, pixel counts, bounding box, raw-frame hash, and canonical PGM hash.
+
+It does not infer a 2200x1125 hidden raster and does not claim to reconstruct
+the protected MATLAB P-code algorithm. Its manifest states:
+
+- `generation_mode = verified-fixture-replay`;
+- `algorithmic_reconstruction_claimed = false`;
+- `transport_capable = false`;
+- `hidden_raster_reconstructed = false`.
+
+### Dynamic Clear-Source renderer
+
+`DynamicPixelRendererProfile` is fixed to the accepted laboratory profile:
+
+- visible raster: 1920x1080;
+- total raster: 2200x1125;
+- active offset: x=132, y=9;
+- pixel clock: 148.5 MHz;
+- center frequency: 915 MHz;
+- bandwidth: 500 kHz;
+- SF7;
+- four K=0 upchirps;
+- zero-based sync chirps K=8 and K=16;
+- 2.25 K=0 downchirps;
+- payload upchirps in exact envelope order;
+- no tail;
+- at most 16 output frames.
+
+The normative laboratory chirp is the R2D.2G integer formula. It contains no
+floating-point tolerance, Golden-specific repair, runtime formula selection,
+or protected-renderer equivalence claim.
+
+The Dynamic renderer validates only `DYNAMIC_SOFTWARE_PHY` envelopes with the
+pinned Oracle provenance. It never launches the Oracle. The Golden PNG is not a
+Dynamic acceptance oracle.
+
+Dynamic outputs are:
+
+- a full-timing `timeline_u8` where 0 is hidden raster, 1 is visible black, and
+  2 is visible white;
+- binary 1920x1080 raw frames;
+- canonical PGM frames;
+- a canonical manifest with formula, raster, symbol, frame, and hash evidence.
+
+The maximum-frame gate is evaluated before chirp rendering or large frame
+allocation.
 
 ## Public API
 
@@ -40,25 +111,36 @@ reordered, borrowed, or substituted.
   full reconstruction equality.
 
 - `execute_pinned_oracle(*, request_path, result_path, runtime,
-  timeout_seconds, max_symbol_count) -> SymbolEnvelope` -- public production
-  entry point. Loads and validates the request, validates the lazy runtime,
-  constructs exactly seven blocks, connects exactly six edges, submits the
-  payload, polls for a stable `frame_len` tag and symbol snapshot, normalises
-  with `normalize_dynamic_symbols`, writes the result, and returns the
-  `SymbolEnvelope`.
+  timeout_seconds, max_symbol_count) -> SymbolEnvelope` -- public Oracle
+  boundary entry point. Loads and validates the request, validates the lazy
+  runtime, constructs exactly seven blocks, connects exactly six edges,
+  submits the payload, polls for a stable `frame_len` tag and symbol snapshot,
+  normalises with `normalize_dynamic_symbols`, writes the result, and returns
+  the `SymbolEnvelope`.
 
 - `write_result(path: Path, request: OracleRequest, envelope: SymbolEnvelope)
   -> None` -- verifies canonical request and envelope, validates all envelope
   fields and provenance, writes deterministic sorted-key ASCII JSON.
+
+- `replay_capture_fixture(*, envelope, fixture_png, profile=None)
+  -> CaptureReplayArtifact` -- validates and reproduces only the pinned Capture
+  fixture entirely in memory.
+
+- `render_dynamic_envelope(*, envelope, profile=None)
+  -> DynamicRenderedPixelArtifact` -- renders a validated Dynamic envelope
+  entirely in memory with the documented Clear-Source algorithm.
 
 ## Process/file boundary
 
 The strict external process/file boundary validates paths as exact `Path`
 objects, requiring absolute canonical symlink-free regular files opened with
 `O_RDONLY | O_NOFOLLOW`. Stable path and descriptor identity is verified at
-every stage (before open, after open, after read, after resolve). Requests are
-limited to 16 384 bytes, decode as ASCII only, and reject duplicate JSON
-object keys at every level.
+every stage. Requests are limited to 16 384 bytes, decode as ASCII only, and
+reject duplicate JSON object keys at every level.
+
+The renderer APIs accept in-memory objects and bytes. They perform no path
+discovery, filesystem writes, environment mutation, process launch, network
+access, device access, or service action.
 
 ## Runtime descriptor
 
@@ -80,14 +162,14 @@ All paths must be exact concrete `Path` objects, absolute, canonical, and
 symlink-free. Files and directories must have the required type and containment
 relationships. The runtime descriptor performs no filesystem discovery and
 mutates neither `sys.path` nor `os.environ`. The lazy loader imports exactly
-`gnuradio.gr`, `gnuradio.blocks`, `pmt`, and `gnuradio.lora_sdr` (not plain
-`lora_sdr`) and verifies their versions and origins.
+`gnuradio.gr`, `gnuradio.blocks`, `pmt`, and `gnuradio.lora_sdr` and verifies
+their versions and origins.
 
-## Exact tap point
+## Exact Oracle tap point
 
 The adapter captures physical symbols **after `gray_demap` and before
-`modulate`**. No preamble, sync word, SFD, tail, zero-fill, or any other
-symbols are added. The six stream edges are:
+`modulate`**. No preamble, sync word, SFD, tail, zero-fill, or other renderer
+symbols are added at the Oracle boundary. The six stream edges are:
 
 1. `whitening -> header`
 2. `header -> add_crc`
@@ -98,7 +180,7 @@ symbols are added. The six stream edges are:
 
 ## R2C.6C validation status
 
-R2C.6B completed the adapter implementation and its fake/mock-based offline
+R2C.6B completed the adapter implementation and fake/mock-based offline
 validation. R2C.6C then completed one explicitly authorised real offline smoke
 test against the pinned GNU Radio runtime:
 
@@ -130,15 +212,25 @@ the expected GNU Radio circular-buffer factory preference. It did not modify
 the repository, Oracle checkout, staged runtime, or system configuration.
 
 The smoke test instantiated only the seven approved blocks through
-`vector_sink_i`. It did not invoke `modulate`, a renderer, display access, SDR,
-IQ recording, RF, or hardware. Those paths remain untested and prohibited
-without separate approval. Ordinary imports and the offline test suite do not
-execute the real Oracle or start a flowgraph.
+`vector_sink_i`. It did not invoke `modulate`, either renderer, display access,
+SDR, IQ recording, RF, or hardware.
+
+## R2D.2H test-vector pin
+
+The Dynamic renderer tests embed the canonical
+`tempest-lora.r2d2h-clear-source-test-vectors.v1` bundle with SHA-256:
+
+`f0e8d676a82afe72b47e2e7daea1e50e44c1af3ffe746c6aef8800af31361afe`
+
+The bundle was derived without the Golden capture fixture and without an
+Oracle run. It pins independent chirp, spot, packet, frame-boundary, raw-frame,
+PGM, and timeline vectors. Capture tests use the Golden fixture only inside the
+Capture-Replay path.
 
 ## Offline tests
 
-The accepted offline suite contains 156 tests. Run it from the repository root
-without installing anything or loading the real Oracle runtime:
+Run from the repository root without installing anything or loading the real
+Oracle runtime:
 
 ```bash
 env -u LD_LIBRARY_PATH -u PYTHONHOME \

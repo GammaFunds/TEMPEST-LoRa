@@ -12,6 +12,38 @@ PINNED_ORACLE_COMMIT = "862746dd1cf635c9c8a4bfbaa2c3a0ec3a5306c9"
 PINNED_ORACLE_TREE = "97e9f429c68b4672ca412a3ee411311564286eb1"
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
+CAPTURE_GOLDEN_SYMBOL_FIXTURE_SHA256 = (
+    "bbac8ea1e0cd5c3c204505d553c982f711d7b13c3a7542309f91adf0d41c572f"
+)
+CAPTURE_GOLDEN_IMAGE_FIXTURE_SHA256 = (
+    "b35b03f5485f98206dbd3858bdd9d902343a9237273e0b0989f6e5646fabe7f6"
+)
+CAPTURE_GOLDEN_DECODED_RAW_SHA256 = (
+    "641de69d5bf70cd643a12fdec73c401f512ad1b288cdf8c2210f715c020e12c4"
+)
+CAPTURE_GOLDEN_CANONICAL_PGM_SHA256 = (
+    "47357bca7297b24aafe2b642edb0677f88639243b0b149d932830ee29f8915df"
+)
+CAPTURE_GOLDEN_SYMBOLS_SHA256_UINT16BE = (
+    "30a781f30ea358336a09ffbaac517c97d95f1ac3e4e79d21c881e14e3ac2962e"
+)
+CAPTURE_GOLDEN_SYMBOLS_ZERO_BASED = (
+    13,
+    9,
+    1,
+    13,
+    61,
+    109,
+    49,
+    97,
+    84,
+    106,
+    39,
+    91,
+    109,
+    109,
+)
+
 
 @dataclass(frozen=True)
 class DynamicPhyParameters:
@@ -38,6 +70,118 @@ class DynamicPhyParameters:
     def descriptor(self) -> dict[str, Any]:
         self.validate()
         return asdict(self)
+
+    def descriptor_sha256(self) -> str:
+        return hashlib.sha256(canonical_json_bytes(self.descriptor())).hexdigest()
+
+
+@dataclass(frozen=True)
+class CaptureReplayRendererProfile:
+    profile_id: ProfileId = ProfileId.CAPTURE_REPLAY
+    visible_width: int = 1920
+    visible_height: int = 1080
+    pixel_encoding: str = "grayscale-u8"
+    black_pixel: int = 0
+    white_pixel: int = 255
+    source_format: str = "png-grayscale8-noninterlaced"
+    symbol_spreading_factor: int = 7
+    symbol_index_base: int = 0
+    symbol_count: int = 14
+    symbol_fixture_sha256: str = CAPTURE_GOLDEN_SYMBOL_FIXTURE_SHA256
+    image_fixture_sha256: str = CAPTURE_GOLDEN_IMAGE_FIXTURE_SHA256
+    decoded_raw_sha256: str = CAPTURE_GOLDEN_DECODED_RAW_SHA256
+    canonical_pgm_sha256: str = CAPTURE_GOLDEN_CANONICAL_PGM_SHA256
+    symbols_sha256_uint16be: str = CAPTURE_GOLDEN_SYMBOLS_SHA256_UINT16BE
+
+    def validate(self) -> None:
+        expected = CaptureReplayRendererProfile()
+        for field in fields(self):
+            actual = getattr(self, field.name)
+            wanted = getattr(expected, field.name)
+            if type(actual) is not type(wanted) or actual != wanted:
+                raise ProtocolError("capture renderer profile differs from R2D.2G v1")
+
+    def descriptor(self) -> dict[str, Any]:
+        self.validate()
+        return {
+            "schema": "tempest-lora.capture-replay-renderer-profile.v1",
+            "name": "capture-replay-published-golden-sf7-v1",
+            "profile_id": int(self.profile_id),
+            "visible_width": self.visible_width,
+            "visible_height": self.visible_height,
+            "pixel_encoding": self.pixel_encoding,
+            "black_pixel": self.black_pixel,
+            "white_pixel": self.white_pixel,
+            "source_format": self.source_format,
+            "symbol_spreading_factor": self.symbol_spreading_factor,
+            "symbol_index_base": self.symbol_index_base,
+            "symbol_count": self.symbol_count,
+            "symbol_fixture_sha256": self.symbol_fixture_sha256,
+            "image_fixture_sha256": self.image_fixture_sha256,
+            "decoded_raw_sha256": self.decoded_raw_sha256,
+            "canonical_pgm_sha256": self.canonical_pgm_sha256,
+            "symbols_sha256_uint16be": self.symbols_sha256_uint16be,
+        }
+
+    def descriptor_sha256(self) -> str:
+        return hashlib.sha256(canonical_json_bytes(self.descriptor())).hexdigest()
+
+
+@dataclass(frozen=True)
+class DynamicPixelRendererProfile:
+    profile_id: ProfileId = ProfileId.DYNAMIC_SOFTWARE_PHY
+    visible_width: int = 1920
+    visible_height: int = 1080
+    total_width: int = 2200
+    total_height: int = 1125
+    active_x_start: int = 132
+    active_y_start: int = 9
+    frame_rate_numerator: int = 60
+    frame_rate_denominator: int = 1
+    pixel_clock_hz: int = 148_500_000
+    center_frequency_hz: int = 915_000_000
+    bandwidth_hz: int = 500_000
+    supported_spreading_factor: int = 7
+    preamble_symbols: int = 4
+    sync_symbols_zero_based: tuple[int, int] = (8, 16)
+    sfd_quarter_chirps: int = 9
+    black_pixel: int = 0
+    white_pixel: int = 255
+    maximum_frame_count: int = 16
+
+    def validate(self) -> None:
+        expected = DynamicPixelRendererProfile()
+        for field in fields(self):
+            actual = getattr(self, field.name)
+            wanted = getattr(expected, field.name)
+            if type(actual) is not type(wanted) or actual != wanted:
+                raise ProtocolError("dynamic renderer profile differs from R2D.2G v1")
+
+    def descriptor(self) -> dict[str, Any]:
+        self.validate()
+        return {
+            "schema": "tempest-lora.dynamic-pixel-renderer-profile.v1",
+            "name": "dynamic-clear-source-linear-phase-1080p60-sf7-v1",
+            "profile_id": int(self.profile_id),
+            "visible_width": self.visible_width,
+            "visible_height": self.visible_height,
+            "total_width": self.total_width,
+            "total_height": self.total_height,
+            "active_x_start": self.active_x_start,
+            "active_y_start": self.active_y_start,
+            "frame_rate_numerator": self.frame_rate_numerator,
+            "frame_rate_denominator": self.frame_rate_denominator,
+            "pixel_clock_hz": self.pixel_clock_hz,
+            "center_frequency_hz": self.center_frequency_hz,
+            "bandwidth_hz": self.bandwidth_hz,
+            "supported_spreading_factor": self.supported_spreading_factor,
+            "preamble_symbols": self.preamble_symbols,
+            "sync_symbols_zero_based": list(self.sync_symbols_zero_based),
+            "sfd_quarter_chirps": self.sfd_quarter_chirps,
+            "black_pixel": self.black_pixel,
+            "white_pixel": self.white_pixel,
+            "maximum_frame_count": self.maximum_frame_count,
+        }
 
     def descriptor_sha256(self) -> str:
         return hashlib.sha256(canonical_json_bytes(self.descriptor())).hexdigest()

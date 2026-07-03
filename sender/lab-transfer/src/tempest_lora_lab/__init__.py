@@ -1,4 +1,4 @@
-"""Offline TEMPEST-LoRa laboratory transfer protocol and profile contracts."""
+"""Offline TEMPEST-LoRa laboratory transfer protocol, profile, and renderer contracts."""
 
 from .input_policy import DEFAULT_INPUT_ROOT, SyntheticFixture, read_synthetic_fixture
 from .oracle_adapter import PinnedOracleRuntime, execute_pinned_oracle
@@ -9,10 +9,24 @@ from .oracle_boundary import (
     write_request,
     write_result,
 )
+from .pixel_renderer import (
+    CaptureReplayArtifact,
+    DynamicRenderedPixelArtifact,
+    render_dynamic_envelope,
+    replay_capture_fixture,
+)
 from .profiles import (
+    CAPTURE_GOLDEN_CANONICAL_PGM_SHA256,
+    CAPTURE_GOLDEN_DECODED_RAW_SHA256,
+    CAPTURE_GOLDEN_IMAGE_FIXTURE_SHA256,
+    CAPTURE_GOLDEN_SYMBOL_FIXTURE_SHA256,
+    CAPTURE_GOLDEN_SYMBOLS_SHA256_UINT16BE,
+    CAPTURE_GOLDEN_SYMBOLS_ZERO_BASED,
     PINNED_ORACLE_COMMIT,
     PINNED_ORACLE_TREE,
+    CaptureReplayRendererProfile,
     DynamicPhyParameters,
+    DynamicPixelRendererProfile,
     SymbolEnvelope,
     capture_profile_descriptor,
     dynamic_profile_descriptor,
@@ -34,8 +48,18 @@ from .protocol import (
 )
 
 __all__ = [
+    "CAPTURE_GOLDEN_CANONICAL_PGM_SHA256",
+    "CAPTURE_GOLDEN_DECODED_RAW_SHA256",
+    "CAPTURE_GOLDEN_IMAGE_FIXTURE_SHA256",
+    "CAPTURE_GOLDEN_SYMBOL_FIXTURE_SHA256",
+    "CAPTURE_GOLDEN_SYMBOLS_SHA256_UINT16BE",
+    "CAPTURE_GOLDEN_SYMBOLS_ZERO_BASED",
+    "CaptureReplayArtifact",
+    "CaptureReplayRendererProfile",
     "DEFAULT_INPUT_ROOT",
     "DynamicPhyParameters",
+    "DynamicPixelRendererProfile",
+    "DynamicRenderedPixelArtifact",
     "FrameType",
     "HEADER_BYTES",
     "MAX_FIXTURE_BYTES",
@@ -61,6 +85,8 @@ __all__ = [
     "parse_frame",
     "read_synthetic_fixture",
     "reassemble_transfer",
+    "render_dynamic_envelope",
+    "replay_capture_fixture",
     "write_request",
     "write_result",
 ]
