@@ -1,7 +1,14 @@
 """Offline TEMPEST-LoRa laboratory transfer protocol and profile contracts."""
 
 from .input_policy import DEFAULT_INPUT_ROOT, SyntheticFixture, read_synthetic_fixture
-from .oracle_boundary import OracleRequest, load_and_validate_result, write_request
+from .oracle_adapter import PinnedOracleRuntime, execute_pinned_oracle
+from .oracle_boundary import (
+    OracleRequest,
+    load_and_validate_request,
+    load_and_validate_result,
+    write_request,
+    write_result,
+)
 from .profiles import (
     PINNED_ORACLE_COMMIT,
     PINNED_ORACLE_TREE,
@@ -38,6 +45,7 @@ __all__ = [
     "OracleRequest",
     "PINNED_ORACLE_COMMIT",
     "PINNED_ORACLE_TREE",
+    "PinnedOracleRuntime",
     "ProfileId",
     "ProtocolError",
     "SymbolEnvelope",
@@ -45,6 +53,8 @@ __all__ = [
     "build_transfer_frames",
     "capture_profile_descriptor",
     "dynamic_profile_descriptor",
+    "execute_pinned_oracle",
+    "load_and_validate_request",
     "load_and_validate_result",
     "normalize_capture_symbols",
     "normalize_dynamic_symbols",
@@ -52,4 +62,5 @@ __all__ = [
     "read_synthetic_fixture",
     "reassemble_transfer",
     "write_request",
+    "write_result",
 ]
