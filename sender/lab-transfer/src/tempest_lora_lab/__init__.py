@@ -72,6 +72,21 @@ from .protocol import (
     parse_frame,
     reassemble_transfer,
 )
+from .native_display_bundle import (
+    DESIGN_BASIS_COMMIT,
+    DESIGN_BASIS_TREE,
+    NATIVE_BUNDLE_MAGIC,
+    NATIVE_BUNDLE_VERSION,
+    BYTE_ORDER_MARKER,
+    FRAME_BYTE_SIZE,
+    XRGB_FOURCC_BYTES,
+    LINEAR_MODIFIER_BYTES,
+    RECORD_KIND_GUARD,
+    RECORD_KIND_DATA,
+    NativeDisplayBundleData,
+    build_native_display_bundle,
+    parse_native_display_bundle,
+)
 
 __all__ = [
     "CAPTURE_GOLDEN_CANONICAL_PGM_SHA256",
@@ -137,4 +152,17 @@ __all__ = [
     "run_offline_display_session",
     "validate_dynamic_display_artifact",
     "validate_r2e1_contract_bytes",
+    "DESIGN_BASIS_COMMIT",
+    "DESIGN_BASIS_TREE",
+    "NATIVE_BUNDLE_MAGIC",
+    "NATIVE_BUNDLE_VERSION",
+    "BYTE_ORDER_MARKER",
+    "FRAME_BYTE_SIZE",
+    "XRGB_FOURCC_BYTES",
+    "LINEAR_MODIFIER_BYTES",
+    "RECORD_KIND_GUARD",
+    "RECORD_KIND_DATA",
+    "NativeDisplayBundleData",
+    "build_native_display_bundle",
+    "parse_native_display_bundle",
 ]

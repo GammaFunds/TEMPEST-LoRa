@@ -242,7 +242,89 @@ env -u LD_LIBRARY_PATH -u PYTHONHOME \
     -q
 ```
 
-## R2E.2 offline exact-timing display contract
+## R2E.4 compile-only native display-bundle adapter
+
+R2E.4 implements the deterministic native display-bundle format and a
+compile-only libdrm-linked CLI validator.
+
+It contains no live DRM/KMS operation, no `/dev/dri` device discovery,
+no device discovery, no DRM master, framebuffer, TEST_ONLY call, atomic
+commit, page flip, event wait, display output, service change, Oracle
+execution, SDR, IQ, or RF use. Blocker B1 remains open.
+
+### Deterministic bundle format and explicit frame identities
+
+The native display bundle (`TLORABND`) encodes every frame record with
+an explicit fixed-width record kind (GUARD=0, DATA=1) and ordinal.
+The parser requires exactly:
+
+    guard-before
+    data ordinal 0
+    data ordinal 1
+    ...
+    data ordinal N-1
+    guard-after
+
+It rejects duplicate ordinals, missing ordinals, reordered ordinals,
+wrong record kind, guard records used as data, data records used as
+guards, changed guard-after identity, truncation, and trailing bytes.
+Identical payloads and SHA-256 values at distinct ordinals are allowed.
+
+### Design basis
+
+The bundle design basis is the completed R2E.2 contract commit and tree:
+
+- design_basis_commit: `f05f7ded6c062852a08214523edf7c991b9493b1`
+- design_basis_tree: `d6a6c1f0a9b495a51a2be0ca38c5c00fc9062c77`
+
+Caller-supplied `checkout_commit` and `checkout_tree` are stored
+separately as current-checkout evidence.
+
+### Build and test
+
+Native (compile-only, no hardware required):
+
+```bash
+cmake -S native/libdrm-backend -B /tmp/build-r2e4 -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build /tmp/build-r2e4 --verbose
+ctest --test-dir /tmp/build-r2e4 --output-on-failure
+```
+
+Python (from repository root):
+
+```bash
+env -u LD_LIBRARY_PATH -u PYTHONHOME \
+  PYTHONDONTWRITEBYTECODE=1 \
+  PYTHONHASHSEED=0 \
+  PYTHONPATH=sender/lab-transfer/src \
+  python3 -B -m unittest discover \
+    -s sender/lab-transfer/tests \
+    -q
+```
+
+### Scope
+
+- deterministic bundle format with explicit record kind and ordinal frame identities;
+- Python `build_native_display_bundle` / `parse_native_display_bundle` API;
+- C++ link-time libdrm dependency via `--no-as-needed` without importing any
+  prohibited live function (`drmSetMaster`, `drmModeGetResources`, etc.);
+- system libdrm and OpenSSL via pkg-config imported targets;
+- C++20, `-Wall -Wextra -Wpedantic -Werror`;
+- CTest.
+
+### Nonclaims
+
+- no live DRM/KMS access;
+- no `/dev/dri` access or device discovery;
+- no DRM master, framebuffer, TEST_ONLY call, atomic commit, page flip,
+  event wait, or display output;
+- no service control, Oracle execution, SDR, IQ, or RF use;
+- no physical pixel-clock accuracy proof;
+- no RF emission or LoRa decodability proof;
+- no protected MATLAB/P-code equivalence claim;
+- B1 remains open.
+
+### R2E.2 offline exact-timing display contract
 
 R2E.2 implements only the pure, offline parts of the accepted R2E.1 contract.
 It does not open or discover `/dev/dri` devices and contains no live libdrm
