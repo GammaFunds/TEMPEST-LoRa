@@ -241,3 +241,48 @@ env -u LD_LIBRARY_PATH -u PYTHONHOME \
     -s sender/lab-transfer/tests \
     -q
 ```
+
+## R2E.2 offline exact-timing display contract
+
+R2E.2 implements only the pure, offline parts of the accepted R2E.1 contract.
+It does not open or discover `/dev/dri` devices and contains no live libdrm
+adapter, modeset, hardware framebuffer write, page flip, display output,
+service control, Oracle execution, SDR, IQ, or RF path.
+
+The pinned external design contract is identified by SHA-256:
+
+`d6b06815ea9e4e077170067c742a87d347766bd484d63fcb1996564524a739c4`
+
+The offline implementation provides:
+
+- `ExactDisplayMode` for the complete CTA-861 VIC-16 timing fields;
+- `ExactKmsSnapshot` for strict caller-supplied KMS identity and property gates;
+- `validate_r2e1_contract_bytes(...)`;
+- `validate_dynamic_display_artifact(...)`;
+- deterministic binary grayscale to linear XRGB8888 conversion;
+- prebuilt black guard and data scanout buffers;
+- strict guard/data/final-guard frame scheduling;
+- `FakeAtomicKmsAdapter`, which has no operating-system or device access;
+- a deterministic offline state machine and session manifest;
+- negative tests for mode, EDID/property, scaling, color, test-only, commit,
+  event, sequence, timeout, out-fence, and topology failures.
+
+Only exact `DynamicRenderedPixelArtifact` values are accepted. Capture-Replay
+artifacts, duck-typed objects, 59.94-Hz modes, scaling, crop, rotation,
+reflection, VRR, HDR, non-linear modifiers, skipped frames, repeated frames,
+async flips, automatic device selection, and unknown pixel- or
+timing-affecting properties are rejected.
+
+R2E.2 is not a live display implementation. A future native/libdrm adapter
+requires a separate phase, a read-only toolchain and hardware gate, resolution
+of display blocker B1, and explicit approval.
+
+### Independent R2E.2 review corrections
+
+The bounded independent review corrected three fail-closed details before commit:
+
+- offline manifests label commit/tree values only as the pinned R2E.1 design basis, never as the current checkout identity;
+- a detected KMS topology mutation suppresses the optional abort-black submission because the pipe is no longer verified stable;
+- flip-event monotonic timestamps must be strictly increasing in addition to consecutive CRTC sequence numbers.
+
+Snapshot format/modifier tuples are also required to contain unique nonempty ASCII strings.
