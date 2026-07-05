@@ -368,3 +368,93 @@ The bounded independent review corrected three fail-closed details before commit
 - flip-event monotonic timestamps must be strictly increasing in addition to consecutive CRTC sequence numbers.
 
 Snapshot format/modifier tuples are also required to contain unique nonempty ASCII strings.
+
+## R2E.6A offline native atomic preflight contract
+
+R2E.6A implements a deterministic and purely in-memory C++20 preflight layer
+that converts an `AtomicDisplayPlan` plus a caller-supplied synthetic KMS
+topology/property snapshot into a symbolic atomic-request template.
+
+It is offline only. It must not open a device, discover hardware, create a
+property blob, create a framebuffer, issue an ioctl, acquire DRM master, or
+submit TEST_ONLY or live atomic commits.
+
+### Validation invariants
+
+The preflight rejects unless all conditions hold:
+
+- plan connector, CRTC, and plane IDs are nonzero;
+- plan mode is the exact VIC16 mode and plan format/modifier are XRGB8888/linear;
+- snapshot object IDs exactly equal plan IDs;
+- device identity exactly matches;
+- EDID SHA-256 exactly matches;
+- topology token exactly matches;
+- connector is connected;
+- connector supports selected CRTC;
+- plane is a primary plane;
+- plane supports selected CRTC;
+- exact mode is 148500/1920/2008/2052/2200/1080/1084/1089/1125 with positive
+  HSync, positive VSync, not interlaced, not doublescan;
+- XRGB8888 plus linear modifier is explicitly supported;
+- source and destination rectangles exactly match the existing plan;
+- no scaling is present (src_w>>16 == dst_w, src_h>>16 == dst_h);
+- rotation, scaling, and color-pipeline identity gates are true;
+- every required property exists exactly once;
+- required property names are exact and case-sensitive;
+- all property IDs in each supplied DRM-object snapshot are nonzero;
+- no duplicate property ID within one DRM object;
+- no duplicate property name within one DRM object.
+
+### Symbolic MODE_ID and FB_ID binding
+
+The prepared request marks `MODE_ID` as `SymbolicValueSource::FutureModeBlobId`
+and `FB_ID` as `SymbolicValueSource::FutureFramebufferId`. These are symbolic
+placeholders to be resolved at a future live-commit stage. No blob or
+framebuffer is created during preflight.
+
+### Deterministic assignment order
+
+The prepared request contains exactly 13 property assignments in this order:
+
+1. connector CRTC_ID
+2. CRTC MODE_ID
+3. CRTC ACTIVE
+4. plane FB_ID
+5. plane CRTC_ID
+6. plane SRC_X
+7. plane SRC_Y
+8. plane SRC_W
+9. plane SRC_H
+10. plane CRTC_X
+11. plane CRTC_Y
+12. plane CRTC_W
+13. plane CRTC_H
+
+### TEST_ONLY-before-live marker
+
+The prepared result records `test_only_before_live_required=true` and
+`allow_modeset_required=true`, `async_flip_forbidden=true`,
+`max_outstanding_commits=1`. These are data markers only. No TEST_ONLY
+call occurred.
+
+### B1 remains open
+
+Physical blocker B1 remains open. This preflight layer does not resolve B1,
+perform physical timing validation, claim real TEST_ONLY readiness, or claim
+RF decodability.
+
+### Build and test
+
+```bash
+cmake -S native/libdrm-backend -B /tmp/build-r2e6a -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build /tmp/build-r2e6a --verbose
+ctest --test-dir /tmp/build-r2e6a --output-on-failure
+```
+
+### Nonclaims
+
+- no TEST_ONLY call occurred;
+- no live DRM/KMS, display, SDR, IQ, RF, Oracle, MATLAB, service, network,
+  subprocess, or SX1262 action occurred;
+- no `/dev/dri` access or device discovery;
+- no libdrm function called (open, ioctl, drmModeGet*, drmModeAtomic*, etc.).

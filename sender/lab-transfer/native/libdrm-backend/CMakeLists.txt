@@ -18,6 +18,7 @@ pkg_check_modules(OPENSSL REQUIRED IMPORTED_TARGET openssl)
 # Library
 add_library(tempest_lora_native_bundle
     src/native_display_bundle.cpp
+    src/native_atomic_preflight.cpp
 )
 target_include_directories(tempest_lora_native_bundle
     PUBLIC include
@@ -51,4 +52,14 @@ target_link_libraries(native_display_bundle_test
 )
 add_test(NAME native_display_bundle_test
     COMMAND native_display_bundle_test
+)
+
+add_executable(native_atomic_preflight_test
+    tests/native_atomic_preflight_test.cpp
+)
+target_link_libraries(native_atomic_preflight_test
+    PRIVATE tempest_lora_native_bundle
+)
+add_test(NAME native_atomic_preflight_test
+    COMMAND native_atomic_preflight_test
 )
